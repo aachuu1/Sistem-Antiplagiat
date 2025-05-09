@@ -1,5 +1,7 @@
 import psycopg2
+from psycopg2 import pool
 
+# SQL pentru crearea tabelelor
 SQL = """
 CREATE TABLE IF NOT EXISTS users (
     id             SERIAL PRIMARY KEY,
@@ -43,36 +45,53 @@ CREATE TABLE IF NOT EXISTS suspicious_passages (
 );
 """
 
+# Crearea unui pool de conexiuni la baza de date
+connection_pool = psycopg2.pool.SimpleConnectionPool(
+    1, 20,  # min, max connections
+    dbname="plagiarism_checker",
+    user="postgres",
+    password="sefumeu09",
+    host="localhost",
+    port="5432"
+)
+
+def get_db_connection():
+    """Obţine o conexiune din pool"""
+    return connection_pool.getconn()
+
+def close_db_connection(conn):
+    """Returnează conexiunea în pool"""
+    connection_pool.putconn(conn)
+
 def init_db():
-    conn = psycopg2.connect(
-        dbname="plagiarism_checker",
-        user="postgres",
-        password="sefumeu09",
-        host="localhost",
-        port="5432"
-    )
+    """Iniţializează baza de date (crează tabelele)"""
+    conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(SQL)
-    conn.commit()
-    cur.close()
-    conn.close()
-    print("Tabele create cu succes!")
+    try:
+        cur.execute(SQL)
+        conn.commit()
+        print("Tabele create cu succes!")
+    except Exception as e:
+        print(f"Eroare la crearea tabelelor: {e}")
+        conn.rollback()
+    finally:
+        cur.close()
+        close_db_connection(conn)
 
 def create_test_user():
+    """Creează un utilizator de test (dacă nu există deja)"""
+    conn = get_db_connection()
+    cur = conn.cursor()
     try:
-        conn = psycopg2.connect(
-            dbname="plagiarism_checker",
-            user="postgres",
-            password="sefumeu09",
-            host="localhost",
-            port="5432"
-        )
-        cur = conn.cursor()
+        # Şterge utilizatorul de test dacă există
         cur.execute("DELETE FROM users WHERE username = 'test_user'")
         conn.commit()
+
+        # Verifică dacă utilizatorul există deja
         cur.execute("SELECT id FROM users WHERE username = 'test_user'")
         user = cur.fetchone()
         if user is None:
+            # Adaugă utilizatorul de test dacă nu există
             cur.execute(
                 "INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
                 ('test_user', 'test@example.com', 'dummy_password_hash')
@@ -81,46 +100,45 @@ def create_test_user():
             conn.commit()
         else:
             user_id = user[0]
-
-        cur.close()
-        conn.close()
         return user_id
     except Exception as e:
-        print(f"Eroare: {e}")
+        print(f"Eroare la crearea utilizatorului test: {e}")
         return None
-
+    finally:
+        cur.close()
+        close_db_connection(conn)
 
 def save_to_db(title, content, user_id):
-    conn = psycopg2.connect(
-        dbname="plagiarism_checker",
-        user="postgres",
-        password="sefumeu09",
-        host="localhost",
-        port="5432"
-    )
+    """Salvează un document în baza de date"""
+    conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO documents (user_id, title, content) VALUES (%s, %s, %s)",
-        (user_id, title, content)
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            "INSERT INTO documents (user_id, title, content) VALUES (%s, %s, %s)",
+            (user_id, title, content)
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"Eroare la salvarea documentului: {e}")
+        conn.rollback()
+    finally:
+        cur.close()
+        close_db_connection(conn)
 
 def get_document_content():
-    conn = psycopg2.connect(
-        dbname="plagiarism_checker",
-        user="postgres",
-        password="sefumeu09",
-        host="localhost",
-        port="5432"
-    )
+    """Obţine titlurile și conținutul documentelor din baza de date"""
+    conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT title, content FROM documents")
-    documents = [{"title": row[0], "content": row[1]} for row in cur.fetchall()]
-    cur.close()
-    conn.close()
-    return documents
+    try:
+        cur.execute("SELECT title, content FROM documents")
+        documents = [{"title": row[0], "content": row[1]} for row in cur.fetchall()]
+        return documents
+    except Exception as e:
+        print(f"Eroare la obţinerea documentelor: {e}")
+        return []
+    finally:
+        cur.close()
+        close_db_connection(conn)
 
 if __name__ == "__main__":
     init_db()
