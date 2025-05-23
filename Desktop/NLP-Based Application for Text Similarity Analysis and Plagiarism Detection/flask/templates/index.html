@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizor de Documente</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+
+</head>
+<body>
+    <div class="container">
+        <h1>Analizor de Documente Text</h1>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="openTab('upload-tab')">Încărcare Multiplă</button>
+            <button class="tab-btn" onclick="openTab('analyze-tab')">Analizare Document</button>
+        </div>
+        
+        <div id="upload-tab" class="tab active">
+            <h2>Încărcare Fișiere</h2>
+            <div id="upload-alert"></div>
+            
+            <div class="form-group">
+                <label for="upload-files">Selectează fișiere:</label>
+                <input type="file" id="upload-files" class="form-control" multiple>
+            </div>
+            
+            <div class="form-group">
+                <label for="upload-encoding">Encoding:</label>
+                <select id="upload-encoding" class="form-control">
+                    <option value="utf-8" selected>UTF-8</option>
+                    <option value="ascii">ASCII</option>
+                    <option value="latin-1">Latin-1</option>
+                    <option value="cp1252">Windows-1252</option>
+                </select>
+            </div>
+            
+            <ul id="upload-file-list" class="file-list"></ul>
+            
+            <div class="progress" id="upload-progress-container" style="display: none;">
+                <div class="progress-bar" id="upload-progress"></div>
+            </div>
+            
+            <button id="upload-btn" class="btn">Încarcă Fișiere</button>
+            
+            <div id="upload-result" class="result-section" style="display: none;"></div>
+        </div>
+        
+        <div id="analyze-tab" class="tab">
+            <h2>Analizare Document</h2>
+            <div id="analyze-alert"></div>
+            
+            <div class="form-group">
+                <label for="analyze-file">Selectează un fișier pentru analiză:</label>
+                <input type="file" id="analyze-file" class="form-control">
+            </div>
+            
+            <div class="form-group">
+                <label for="analyze-encoding">Encoding:</label>
+                <select id="analyze-encoding" class="form-control">
+                    <option value="utf-8" selected>UTF-8</option>
+                    <option value="ascii">ASCII</option>
+                    <option value="latin-1">Latin-1</option>
+                    <option value="cp1252">Windows-1252</option>
+                </select>
+            </div>
+            
+            <div class="progress" id="analyze-progress-container" style="display: none;">
+                <div class="progress-bar" id="analyze-progress"></div>
+            </div>
+            
+            <button id="analyze-btn" class="btn">Analizează Document</button>
+            
+            <div id="analyzing-indicator" class="loading">
+                <p>Se analizează documentul, te rugăm să aștepți...</p>
+                <div class="spinner"></div>
+            </div>
+            
+            <div id="analyze-result" style="display: none;">
+                <h3>Rezultate Analiză</h3>
+                
+                <div class="result-section">
+                    <h4>Similaritate Externă (Web)</h4>
+                    <div class="similarity-bar">
+                        <div id="external-similarity-bar" class="similarity-fill" style="width: 0%">0%</div>
+                    </div>
+                    <p>Scor global de similaritate cu conținut de pe web: <strong id="external-similarity-score">0%</strong></p>
+                    
+                    <div id="external-details">
+                        <h5>Detalii similarități externe</h5>
+                        <div id="external-similarities"></div>
+                    </div>
+                </div>
+                
+                <div class="result-section">
+                    <h4>Similaritate Internă (Documente)</h4>
+                    <div class="similarity-bar">
+                        <div id="internal-similarity-bar" class="similarity-fill" style="width: 0%">0%</div>
+                    </div>
+                    <p>Scor global de similaritate cu alte documente: <strong id="internal-similarity-score">0%</strong></p>
+                    
+                    <div id="internal-details">
+                        <h5>Detalii similarități interne</h5>
+                        <div id="internal-results"></div>
+                    </div>
+                </div>
+                
+                <div class="debug-info" id="debug-info"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>

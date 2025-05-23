@@ -1,7 +1,9 @@
 import psycopg2
 from psycopg2 import pool
+import logging
 
-# SQL pentru crearea tabelelor
+logger = logging.getLogger(__name__)
+
 SQL = """
 CREATE TABLE IF NOT EXISTS users (
     id             SERIAL PRIMARY KEY,
@@ -45,9 +47,8 @@ CREATE TABLE IF NOT EXISTS suspicious_passages (
 );
 """
 
-# Crearea unui pool de conexiuni la baza de date
 connection_pool = psycopg2.pool.SimpleConnectionPool(
-    1, 20,  # min, max connections
+    1, 20,
     dbname="plagiarism_checker",
     user="postgres",
     password="sefumeu09",
@@ -56,7 +57,7 @@ connection_pool = psycopg2.pool.SimpleConnectionPool(
 )
 
 def get_db_connection():
-    """Obţine o conexiune din pool"""
+    """Obține o conexiune din pool"""
     return connection_pool.getconn()
 
 def close_db_connection(conn):
@@ -64,7 +65,6 @@ def close_db_connection(conn):
     connection_pool.putconn(conn)
 
 def init_db():
-    """Iniţializează baza de date (crează tabelele)"""
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -78,31 +78,128 @@ def init_db():
         cur.close()
         close_db_connection(conn)
 
-def create_test_user():
-    """Creează un utilizator de test (dacă nu există deja)"""
+def create_user(username, email, password_hash):
+    """Creează un utilizator nou și returnează ID-ul acestuia"""
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Şterge utilizatorul de test dacă există
-        cur.execute("DELETE FROM users WHERE username = 'test_user'")
+        cur.execute(
+            "INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
+            (username, email, password_hash)
+        )
+        user_id = cur.fetchone()[0]
         conn.commit()
+        logger.info(f"Utilizator nou creat: {username} (ID: {user_id})")
+        return user_id
+    except psycopg2.IntegrityError as e:
+        logger.warning(f"Utilizatorul {username} sau email-ul {email} există deja")
+        conn.rollback()
+        return None
+    except Exception as e:
+        logger.error(f"Eroare la crearea utilizatorului: {e}")
+        conn.rollback()
+        return None
+    finally:
+        cur.close()
+        close_db_connection(conn)
 
-        # Verifică dacă utilizatorul există deja
+def authenticate_user(username, password_hash):
+    """Autentifică utilizatorul și returnează ID-ul acestuia"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id FROM users WHERE username = %s AND password_hash = %s",
+            (username, password_hash)
+        )
+        result = cur.fetchone()
+        if result:
+            user_id = result[0]
+            logger.info(f"Autentificare reușită pentru {username} (ID: {user_id})")
+            return user_id
+        else:
+            logger.warning(f"Încercare de autentificare eșuată pentru {username}")
+            return None
+    except Exception as e:
+        logger.error(f"Eroare la autentificare: {e}")
+        return None
+    finally:
+        cur.close()
+        close_db_connection(conn)
+
+def get_user_by_id(user_id):
+    """Obține informațiile utilizatorului după ID"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id, username, email, created_at FROM users WHERE id = %s",
+            (user_id,)
+        )
+        result = cur.fetchone()
+        if result:
+            return {
+                "id": result[0],
+                "username": result[1],
+                "email": result[2],
+                "created_at": result[3]
+            }
+        return None
+    except Exception as e:
+        logger.error(f"Eroare la obținerea utilizatorului: {e}")
+        return None
+    finally:
+        cur.close()
+        close_db_connection(conn)
+
+def get_user_by_username(username):
+    """Obține informațiile utilizatorului după username"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id, username, email, created_at FROM users WHERE username = %s",
+            (username,)
+        )
+        result = cur.fetchone()
+        if result:
+            return {
+                "id": result[0],
+                "username": result[1],
+                "email": result[2],
+                "created_at": result[3]
+            }
+        return None
+    except Exception as e:
+        logger.error(f"Eroare la obținerea utilizatorului: {e}")
+        return None
+    finally:
+        cur.close()
+        close_db_connection(conn)
+
+def create_test_user():
+    """Creează un utilizator de test (păstrat pentru compatibilitate)"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Verifică dacă utilizatorul de test există deja
         cur.execute("SELECT id FROM users WHERE username = 'test_user'")
         user = cur.fetchone()
         if user is None:
-            # Adaugă utilizatorul de test dacă nu există
             cur.execute(
                 "INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s) RETURNING id",
                 ('test_user', 'test@example.com', 'dummy_password_hash')
             )
             user_id = cur.fetchone()[0]
             conn.commit()
+            logger.info(f"Utilizator de test creat cu ID: {user_id}")
         else:
             user_id = user[0]
+            logger.info(f"Utilizator de test există deja cu ID: {user_id}")
         return user_id
     except Exception as e:
-        print(f"Eroare la crearea utilizatorului test: {e}")
+        logger.error(f"Eroare la crearea utilizatorului test: {e}")
+        conn.rollback()
         return None
     finally:
         cur.close()
@@ -118,24 +215,80 @@ def save_to_db(title, content, user_id):
             (user_id, title, content)
         )
         conn.commit()
+        logger.info(f"Document salvat: {title} pentru utilizatorul {user_id}")
     except Exception as e:
-        print(f"Eroare la salvarea documentului: {e}")
+        logger.error(f"Eroare la salvarea documentului: {e}")
         conn.rollback()
     finally:
         cur.close()
         close_db_connection(conn)
 
-def get_document_content():
-    """Obţine titlurile și conținutul documentelor din baza de date"""
+def get_document_content(user_id=None):
+    """Obține conținutul documentelor (pentru un utilizator specific sau toate)"""
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT title, content FROM documents")
+        if user_id:
+            cur.execute("SELECT title, content FROM documents WHERE user_id = %s", (user_id,))
+        else:
+            cur.execute("SELECT title, content FROM documents")
+        
         documents = [{"title": row[0], "content": row[1]} for row in cur.fetchall()]
+        logger.debug(f"Obținute {len(documents)} documente" + (f" pentru utilizatorul {user_id}" if user_id else ""))
         return documents
     except Exception as e:
-        print(f"Eroare la obţinerea documentelor: {e}")
+        logger.error(f"Eroare la obținerea documentelor: {e}")
         return []
+    finally:
+        cur.close()
+        close_db_connection(conn)
+
+def get_user_documents(user_id):
+    """Obține toate documentele unui utilizator cu informații suplimentare"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id, title, uploaded_at FROM documents WHERE user_id = %s ORDER BY uploaded_at DESC",
+            (user_id,)
+        )
+        documents = []
+        for row in cur.fetchall():
+            documents.append({
+                "id": row[0],
+                "title": row[1],
+                "uploaded_at": row[2]
+            })
+        return documents
+    except Exception as e:
+        logger.error(f"Eroare la obținerea documentelor utilizatorului: {e}")
+        return []
+    finally:
+        cur.close()
+        close_db_connection(conn)
+
+def delete_document(document_id, user_id):
+    """Șterge un document (doar dacă aparține utilizatorului)"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "DELETE FROM documents WHERE id = %s AND user_id = %s",
+            (document_id, user_id)
+        )
+        deleted_count = cur.rowcount
+        conn.commit()
+        
+        if deleted_count > 0:
+            logger.info(f"Document {document_id} șters de utilizatorul {user_id}")
+            return True
+        else:
+            logger.warning(f"Nu s-a putut șterge documentul {document_id} pentru utilizatorul {user_id}")
+            return False
+    except Exception as e:
+        logger.error(f"Eroare la ștergerea documentului: {e}")
+        conn.rollback()
+        return False
     finally:
         cur.close()
         close_db_connection(conn)

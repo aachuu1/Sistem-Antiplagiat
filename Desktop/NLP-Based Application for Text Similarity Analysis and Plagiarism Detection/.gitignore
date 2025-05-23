@@ -1,10 +1,9 @@
-# Fișiere specifice sistemului de operare
+
 .DS_Store        # macOS
 Thumbs.db        # Windows
 desktop.ini      # Windows
 .Trash-*         # Linux
 
-# Fișiere specifice IDE-urilor
 .idea/           # JetBrains (CLion, IntelliJ, etc.)
 .vscode/         # Visual Studio Code
 *.suo            # Visual Studio
@@ -12,7 +11,6 @@ desktop.ini      # Windows
 *.userosscache   # Visual Studio
 *.sln            # Visual Studio
 
-# Fișiere de build și binare
 build/           # Director de build
 dist/            # Director de distribuție
 *.exe            # Executabile
@@ -22,28 +20,19 @@ dist/            # Director de distribuție
 *.bin            # Fișiere binare
 *.log            # Fișiere de log
 
-# Fișiere Python
 __pycache__/     # Cache Python
 *.py[cod]        # Fișierele compilate Python
 *.egg-info/      # Fișiere egg-info
 
-# Fișiere de configurare sensibile
 .env             # Fișiere de mediu
 config.json      # Configurație locală
 secrets.json     # Fișiere sensibile
 *.key            # Chei private
 
-# Fișiere generate de gestionare a pachetelor
 node_modules/    # Pachete npm
 *.lock           # Fișiere lock, de exemplu yarn.lock, package-lock.json
 
-# Alte fișiere temporare
 *.bak            # Fișiere backup
 *.swp            # Fișiere swap
 
-# Excluderea directoarelor de resurse ale aplicației tale
-generated/assets/ # Exemplu de director generat în jocul tău cu raylib
-resurse/          # Director cu resurse pentru site-ul de adopție animale
-
-# Fișierele de test care nu trebuie incluse
 *.test.js        # Fișiere de test
